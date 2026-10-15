@@ -16,6 +16,15 @@ npm run dev
 
 Open the printed local URL in a browser. The landing page is home; click Console.
 
+## Terminal client
+
+```bash
+node terminal/chat.mjs --provider deepseek
+```
+
+Same 8 providers in your terminal, keys via env vars or `~/.ouagx/keys.json`.
+See [terminal/README.md](terminal/README.md).
+
 ## One-line PowerShell install (from ouagx.com)
 
 Once `ouagx.com` points at the Amplify app, anyone on Windows can install with:
