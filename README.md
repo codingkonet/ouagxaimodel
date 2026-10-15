@@ -16,6 +16,17 @@ npm run dev
 
 Open the printed local URL in a browser. The landing page is home; click Console.
 
+## One-line PowerShell install (from ouagx.com)
+
+Once `ouagx.com` points at the Amplify app, anyone on Windows can install with:
+
+```powershell
+irm https://ouagx.com/install.ps1 | iex
+```
+
+The installer (`public/install.ps1`) downloads the app source from GitHub,
+installs dependencies, builds, and launches OUAGX at `http://localhost:4173/`.
+
 ## Build
 
 ```bash
