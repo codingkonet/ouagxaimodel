@@ -54,6 +54,117 @@ function Landing() {
   );
 }
 
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    const area = document.createElement('textarea');
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(area);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function CodeBlock({ lang, code }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    setCopied(await copyTextToClipboard(code));
+  }
+  return (
+    <pre className="codeblock">
+      <div className="code-head">
+        <span>{lang || 'code'}</span>
+        <button onClick={copy}>{copied ? 'Copied!' : 'Copy'}</button>
+      </div>
+      <code>{code}</code>
+    </pre>
+  );
+}
+
+function InlineRich({ text }) {
+  const bits = String(text).split(/(`[^`\n]+`)/g);
+  return (
+    <span>
+      {bits.map((bit, i) => {
+        if (bit.length > 2 && bit.startsWith('`') && bit.endsWith('`')) {
+          return <code key={i}>{bit.slice(1, -1)}</code>;
+        }
+        const lines = bit.split('\n');
+        return (
+          <span key={i}>
+            {lines.map((line, j) => (
+              <span key={j}>
+                {line}
+                {j < lines.length - 1 && <br />}
+              </span>
+            ))}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+function MessageBody({ text }) {
+  const body = String(text || '');
+  const segments = [];
+  const fence = /```([^\n`]*)\n?([\s\S]*?)```/g;
+  let last = 0;
+  let match;
+  let key = 0;
+  while ((match = fence.exec(body)) !== null) {
+    if (match.index > last) {
+      segments.push({ kind: 'text', value: body.slice(last, match.index), key: key++ });
+    }
+    segments.push({ kind: 'code', lang: match[1].trim(), value: match[2].replace(/\n$/, ''), key: key++ });
+    last = match.index + match[0].length;
+  }
+  if (last < body.length) {
+    segments.push({ kind: 'text', value: body.slice(last), key: key++ });
+  }
+  return (
+    <>
+      {segments.map((s) =>
+        s.kind === 'code' ? (
+          <CodeBlock key={s.key} lang={s.lang} code={s.value} />
+        ) : (
+          <InlineRich key={s.key} text={s.value} />
+        ),
+      )}
+    </>
+  );
+}
+
+const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+const TEXT_NAME_PATTERN = /\.(txt|md|markdown|js|jsx|ts|tsx|json|csv|css|html|xml|yml|yaml|log|py|java|c|cpp|h|sh|ps1|sql)$/i;
+const ATTACH_ACCEPT = '.txt,.md,.js,.jsx,.ts,.tsx,.json,.csv,.css,.html,.xml,.yml,.yaml,.log,.py,.png,.jpg,.jpeg,.gif,.webp';
+const MAX_IMAGES = 4;
+const MAX_FILES = 5;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_TEXT_BYTES = 200 * 1024;
+
+function formatBytes(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function readFileAs(file, mode) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    if (mode === 'image') reader.readAsDataURL(file);
+    else reader.readAsText(file);
+  });
+}
+
 function Console() {
   const [keys, setKeys] = useState(() => loadKeys());
   const [providerId, setProviderId] = useState('openai');
@@ -65,6 +176,7 @@ function Console() {
   const [thread, setThread] = useState([
     { role: 'assistant', content: 'Pick a provider on the left, add its key, then ask something.' },
   ]);
+  const [attachments, setAttachments] = useState([]);
 
   const provider = useMemo(() => PROVIDERS.find((p) => p.id === providerId), [providerId]);
 
@@ -79,13 +191,69 @@ function Console() {
     saveKeys(next);
   }
 
+  function removeAttachment(index) {
+    setAttachments(attachments.filter((_, i) => i !== index));
+  }
+
+  async function addFiles(list) {
+    const picked = Array.from(list || []);
+    if (picked.length === 0) return;
+    setError('');
+    const next = [...attachments];
+    const problems = [];
+    for (const file of picked) {
+      if (IMAGE_MIME_TYPES.includes(file.type)) {
+        if (next.filter((a) => a.kind === 'image').length >= MAX_IMAGES) {
+          problems.push(`Only ${MAX_IMAGES} images per message.`);
+          continue;
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+          problems.push(`${file.name} is over 5 MB.`);
+          continue;
+        }
+        try {
+          const dataUrl = await readFileAs(file, 'image');
+          next.push({ kind: 'image', name: file.name, size: file.size, mediaType: file.type, dataUrl });
+        } catch (e) {
+          problems.push(e.message);
+        }
+      } else if (file.type === '' || file.type.startsWith('text/') || TEXT_NAME_PATTERN.test(file.name)) {
+        if (next.filter((a) => a.kind === 'file').length >= MAX_FILES) {
+          problems.push(`Only ${MAX_FILES} text files per message.`);
+          continue;
+        }
+        if (file.size > MAX_TEXT_BYTES) {
+          problems.push(`${file.name} is over 200 KB.`);
+          continue;
+        }
+        try {
+          const text = await readFileAs(file, 'text');
+          next.push({ kind: 'file', name: file.name, size: file.size, text: String(text) });
+        } catch (e) {
+          problems.push(e.message);
+        }
+      } else {
+        problems.push(`${file.name || 'That file'} is not supported (images: PNG, JPEG, GIF, WebP; plus text files).`);
+      }
+    }
+    setAttachments(next);
+    if (problems.length > 0) setError(problems.join(' '));
+  }
+
   async function send() {
     const text = input.trim();
-    if (!text || busy) return;
+    if ((!text && attachments.length === 0) || busy) return;
     setError('');
-    const nextThread = [...thread, { role: 'user', content: text }];
+    const files = attachments
+      .filter((a) => a.kind === 'file')
+      .map((a) => ({ name: a.name, size: a.size, text: a.text }));
+    const images = attachments
+      .filter((a) => a.kind === 'image')
+      .map((a) => ({ name: a.name, size: a.size, mediaType: a.mediaType, dataUrl: a.dataUrl }));
+    const nextThread = [...thread, { role: 'user', content: text, files, images }];
     setThread(nextThread);
     setInput('');
+    setAttachments([]);
     setBusy(true);
     try {
       const reply = await sendChat({ providerId, keys, model, baseUrl, messages: nextThread });
@@ -139,12 +307,49 @@ function Console() {
             {thread.map((m, i) => (
               <div key={i} className={`msg ${m.role === 'user' ? 'user' : 'ai'}`}>
                 <div className="who">{m.role === 'user' ? 'You' : `OUAGX · ${provider.label}`}</div>
-                <div className="bubble">{m.content}</div>
+                <div className="bubble">
+                  {m.content && <MessageBody text={m.content} />}
+                  {m.images && m.images.length > 0 && (
+                    <div className="thumbs">
+                      {m.images.map((img, j) => (
+                        <img key={j} className="thumb" src={img.dataUrl} alt={img.name || 'attached image'} />
+                      ))}
+                    </div>
+                  )}
+                  {m.files && m.files.length > 0 && (
+                    <div className="chips">
+                      {m.files.map((f, j) => (
+                        <span className="chip static" key={j}>{f.name}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
             {busy && <p className="hint">Contacting {provider.label}…</p>}
           </div>
           {error && <div className="error">{error}</div>}
+          <div className="attach-row">
+            <label className="attach-btn">
+              Attach files
+              <input
+                type="file"
+                multiple
+                accept={ATTACH_ACCEPT}
+                onChange={async (e) => {
+                  await addFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+            {attachments.map((a, i) => (
+              <span className="chip" key={i}>
+                {a.kind === 'image' && <img className="chip-thumb" src={a.dataUrl} alt="" />}
+                <span>{a.name} · {formatBytes(a.size)}</span>
+                <button onClick={() => removeAttachment(i)} aria-label={`Remove ${a.name}`}>&times;</button>
+              </span>
+            ))}
+          </div>
           <div className="composer">
             <input
               value={input}
@@ -183,21 +388,9 @@ function Keygen() {
 
   async function copy() {
     if (!key) return;
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(key);
-      } else {
-        const area = document.createElement('textarea');
-        area.value = key;
-        document.body.appendChild(area);
-        area.select();
-        document.execCommand('copy');
-        document.body.removeChild(area);
-      }
-      setCopied(true);
-    } catch {
-      setError('Copy failed - select the key and copy it manually.');
-    }
+    const ok = await copyTextToClipboard(key);
+    if (ok) setCopied(true);
+    else setError('Copy failed - select the key and copy it manually.');
   }
 
   return (
