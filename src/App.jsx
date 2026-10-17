@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PROVIDERS, loadKeys, saveKeys, sendChat } from './lib/providers.js';
 import { generateKey } from './lib/keygen.js';
+import {
+  BUDGET_CATEGORIES,
+  buildBudgetPrompt,
+  loadTransactions,
+  saveTransactions,
+  summarizeBudget,
+} from './lib/budget.js';
 
 function useHashRoute() {
   const [hash, setHash] = useState(window.location.hash || '#/');
@@ -11,6 +18,7 @@ function useHashRoute() {
   }, []);
   if (hash.startsWith('#/app')) return 'app';
   if (hash.startsWith('#/key')) return 'keygen';
+  if (hash.startsWith('#/tools')) return 'tools';
   return 'home';
 }
 
@@ -475,6 +483,215 @@ function Keygen() {
   );
 }
 
+function BudgetManager() {
+  const [txs, setTxs] = useState(() => loadTransactions());
+  const [desc, setDesc] = useState('');
+  const [amount, setAmount] = useState('');
+  const [type, setType] = useState('expense');
+  const [category, setCategory] = useState('food');
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [providerId, setProviderId] = useState('openai');
+  const [question, setQuestion] = useState('Analyze my spending and give me 3 concrete tips to save money.');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [answer, setAnswer] = useState('');
+
+  useEffect(() => {
+    saveTransactions(txs);
+  }, [txs]);
+
+  const summary = useMemo(() => summarizeBudget(txs), [txs]);
+
+  function add() {
+    const value = Number(amount);
+    if (!desc.trim() || !(value > 0)) {
+      setError('Enter a description and an amount above 0.');
+      return;
+    }
+    setError('');
+    setTxs([
+      ...txs,
+      {
+        id: Date.now(),
+        description: desc.trim(),
+        amount: value,
+        type,
+        category: type === 'expense' ? category : 'income',
+        date,
+      },
+    ]);
+    setDesc('');
+    setAmount('');
+  }
+
+  function remove(id) {
+    setTxs(txs.filter((t) => t.id !== id));
+  }
+
+  async function analyze() {
+    if (busy) return;
+    setError('');
+    setAnswer('');
+    if (txs.length === 0) {
+      setError('Add some transactions first.');
+      return;
+    }
+    const keys = loadKeys();
+    const provider = PROVIDERS.find((p) => p.id === providerId);
+    if (!keys[provider.keyName]) {
+      setError(`Add your ${provider.label} key in the Console first.`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const reply = await sendChat({
+        providerId,
+        keys,
+        model: provider.defaultModel,
+        baseUrl: '',
+        messages: [{ role: 'user', content: buildBudgetPrompt(txs, question) }],
+      });
+      setAnswer(reply);
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="section-title">Budget manager</h2>
+      <div className="totals">
+        <div className="panel">
+          <h3>Income</h3>
+          <p className="total-num">{summary.income.toFixed(2)}</p>
+        </div>
+        <div className="panel">
+          <h3>Expenses</h3>
+          <p className="total-num">{summary.expenses.toFixed(2)}</p>
+        </div>
+        <div className="panel">
+          <h3>Balance</h3>
+          <p className="total-num">{summary.balance.toFixed(2)}</p>
+        </div>
+      </div>
+      <div className="panel">
+        <div className="form-grid">
+          <div>
+            <label>What</label>
+            <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Groceries" />
+          </div>
+          <div>
+            <label>Amount</label>
+            <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+          </div>
+          <div>
+            <label>Type</label>
+            <select value={type} onChange={(e) => setType(e.target.value)}>
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+          </div>
+          <div>
+            <label>Category</label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} disabled={type !== 'expense'}>
+              {BUDGET_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div>
+            <button className="btn" onClick={add}>Add</button>
+          </div>
+        </div>
+      </div>
+      {txs.length > 0 ? (
+        <table className="keys">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>What</th>
+              <th>Category</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th aria-label="Actions" />
+            </tr>
+          </thead>
+          <tbody>
+            {txs.map((t) => (
+              <tr key={t.id}>
+                <td>{t.date}</td>
+                <td>{t.description}</td>
+                <td>{t.category}</td>
+                <td>{t.type}</td>
+                <td>{Number(t.amount).toFixed(2)}</td>
+                <td>
+                  <button className="mini-btn" onClick={() => remove(t.id)}>Remove</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="hint">No transactions yet - add your first one above.</p>
+      )}
+
+      <h2 className="section-title">AI analysis</h2>
+      <div className="panel">
+        <div className="field">
+          <label>Provider</label>
+          <select value={providerId} onChange={(e) => setProviderId(e.target.value)}>
+            {PROVIDERS.filter((p) => p.id !== 'custom').map((p) => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Question</label>
+          <input value={question} onChange={(e) => setQuestion(e.target.value)} />
+        </div>
+        <button className="btn" onClick={analyze} disabled={busy}>
+          {busy ? 'Analyzing...' : 'Analyze my budget'}
+        </button>
+        <p className="hint">Uses the key you saved in the Console. For custom endpoints, use the Console chat.</p>
+        {error && <div className="error">{error}</div>}
+      </div>
+      {answer && (
+        <div className="thread answer">
+          <div className="msg ai">
+            <div className="who">OUAGX budget coach</div>
+            <div className="bubble">
+              <MessageBody text={answer} />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Tools() {
+  return (
+    <div className="page">
+      <h2>AI tools</h2>
+      <p className="hint">
+        Small tools that work on your data, with optional AI analysis using your Console keys.
+        Everything is stored only in this browser.
+      </p>
+      <BudgetManager />
+      <h2 className="section-title">More tools</h2>
+      <div className="panel">
+        <p className="hint">More AI tools are coming here. Tell us what you need next.</p>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const route = useHashRoute();
   return (
@@ -483,11 +700,12 @@ export default function App() {
         <div className="brand">OUAGX<small>gateway console</small></div>
         <nav className="nav">
           <a href="#/">Home</a>
+          <a href="#/tools">Tools</a>
           <a href="#/key">API key</a>
           <a href="#/app" className="cta">Console</a>
         </nav>
       </header>
-      {route === 'app' ? <Console /> : route === 'keygen' ? <Keygen /> : <Landing />}
+      {route === 'app' ? <Console /> : route === 'keygen' ? <Keygen /> : route === 'tools' ? <Tools /> : <Landing />}
       <footer className="footer">
         <span>© {new Date().getFullYear()} OUAGX. All rights reserved.</span>
         <span>Bring-your-own-key gateway — keys stay in your browser.</span>

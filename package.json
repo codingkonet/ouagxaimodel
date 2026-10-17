@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview --port 4173",
     "api": "node server/server.mjs",
-    "test": "node --test server/handler.test.mjs server/lambda.test.mjs src/lib/keygen.test.mjs src/lib/providers.test.mjs"
+    "test": "node --test server/handler.test.mjs server/lambda.test.mjs src/lib/keygen.test.mjs src/lib/providers.test.mjs src/lib/budget.test.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

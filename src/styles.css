@@ -67,6 +67,13 @@ table.keys td, table.keys th { border-bottom: 1px solid var(--line); padding: 8p
 .code-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 8px 8px 12px; }
 .code-head span { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #9fd3bb; }
 .code-head button { background: transparent; color: #cfe8da; border: 1px solid #2c443b; border-radius: 6px; cursor: pointer; padding: 3px 10px; font-size: 12px; }
+.totals { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin: 16px 0; }
+.total-num { font-size: 26px; font-weight: 800; margin: 4px 0 0; }
+.form-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto; gap: 8px; align-items: end; }
+.form-grid input, .form-grid select { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.form-grid label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+.thread.answer { margin-top: 16px; }
+.mini-btn { border: 1px solid var(--line); background: #fff; border-radius: 6px; cursor: pointer; padding: 3px 10px; font-size: 12px; }
 .error { color: #9b1c1c; background: #fdecec; border: 1px solid #f3b8b8; padding: 10px 12px; border-radius: 8px; margin-top: 12px; }
 .hint { font-size: 13px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
 .key-output { font-family: Consolas, "Courier New", monospace; }
@@ -77,7 +84,7 @@ table.keys td, table.keys th { border-bottom: 1px solid var(--line); padding: 8p
   color: var(--muted); font-size: 13px;
 }
 @media (max-width: 860px) {
-  .hero, .split, .console { grid-template-columns: 1fr; }
+  .hero, .split, .console, .totals, .form-grid { grid-template-columns: 1fr; }
   .hero h1 { font-size: 34px; }
   .page { padding: 24px 16px 56px; }
   .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
