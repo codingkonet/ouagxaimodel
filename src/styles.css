@@ -83,6 +83,15 @@ table.keys td, table.keys th { border-bottom: 1px solid var(--line); padding: 8p
 .menu-label { display: block; font-weight: 700; }
 .menu-hint { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
 .menu-note { display: block; padding: 8px 12px 4px; font-size: 12px; color: var(--muted); }
+.tool-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+a.panel.tool-card { display: block; text-decoration: none; color: inherit; }
+a.panel.tool-card:hover { border-color: var(--accent); }
+.tool-card h3 { margin: 0 0 4px; }
+.tool-card .hint { margin: 0; }
+.back-link { font-weight: 600; }
+.page-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.page-card { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.text-preview { white-space: pre-wrap; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; max-height: 220px; overflow: auto; font-size: 13px; }
 .error { color: #9b1c1c; background: #fdecec; border: 1px solid #f3b8b8; padding: 10px 12px; border-radius: 8px; margin-top: 12px; }
 .hint { font-size: 13px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
 .key-output { font-family: Consolas, "Courier New", monospace; }
@@ -93,7 +102,7 @@ table.keys td, table.keys th { border-bottom: 1px solid var(--line); padding: 8p
   color: var(--muted); font-size: 13px;
 }
 @media (max-width: 860px) {
-  .hero, .split, .console, .totals, .form-grid { grid-template-columns: 1fr; }
+  .hero, .split, .console, .totals, .form-grid, .tool-cards { grid-template-columns: 1fr; }
   .hero h1 { font-size: 34px; }
   .page { padding: 24px 16px 56px; }
   .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }

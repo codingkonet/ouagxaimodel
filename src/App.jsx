@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { PROVIDERS, loadKeys, saveKeys, sendChat } from './lib/providers.js';
+import { readFileAs } from './lib/files.js';
 import { generateKey } from './lib/keygen.js';
+
+const PdfConvert = lazy(() => import('./PdfConvert.jsx'));
 import {
   BUDGET_CATEGORIES,
   buildBudgetPrompt,
@@ -18,6 +21,8 @@ function useHashRoute() {
   }, []);
   if (hash.startsWith('#/app')) return 'app';
   if (hash.startsWith('#/key')) return 'keygen';
+  if (hash.startsWith('#/tools/budget')) return 'budget';
+  if (hash.startsWith('#/tools/pdf')) return 'pdf';
   if (hash.startsWith('#/tools')) return 'tools';
   return 'home';
 }
@@ -161,16 +166,6 @@ const MAX_TEXT_BYTES = 200 * 1024;
 function formatBytes(bytes) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
-
-function readFileAs(file, mode) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
-    if (mode === 'image') reader.readAsDataURL(file);
-    else reader.readAsText(file);
-  });
 }
 
 function Console() {
@@ -676,7 +671,8 @@ function BudgetManager() {
 }
 
 const TOOL_MENU_ITEMS = [
-  { label: 'Budget manager', href: '#/tools', hint: 'Track spending + AI analysis' },
+  { label: 'Budget manager', href: '#/tools/budget', hint: 'Track spending + AI analysis' },
+  { label: 'PDF convert', href: '#/tools/pdf', hint: 'PDF to text, images and back' },
 ];
 
 function ToolsMenu() {
@@ -724,6 +720,11 @@ function ToolsMenu() {
   );
 }
 
+const TOOL_CARDS = [
+  { label: 'Budget manager', desc: 'Track income and spending, then get AI tips.', href: '#/tools/budget' },
+  { label: 'PDF convert', desc: 'PDF to text or images - and text or images back to PDF.', href: '#/tools/pdf' },
+];
+
 function Tools() {
   return (
     <div className="page">
@@ -732,7 +733,14 @@ function Tools() {
         Small tools that work on your data, with optional AI analysis using your Console keys.
         Everything is stored only in this browser.
       </p>
-      <BudgetManager />
+      <div className="tool-cards">
+        {TOOL_CARDS.map((tool) => (
+          <a key={tool.href} className="panel tool-card" href={tool.href}>
+            <h3>{tool.label}</h3>
+            <p className="hint">{tool.desc}</p>
+          </a>
+        ))}
+      </div>
       <h2 className="section-title">More tools</h2>
       <div className="panel">
         <p className="hint">More AI tools are coming here. Tell us what you need next.</p>
@@ -754,7 +762,27 @@ export default function App() {
           <a href="#/app" className="cta">Console</a>
         </nav>
       </header>
-      {route === 'app' ? <Console /> : route === 'keygen' ? <Keygen /> : route === 'tools' ? <Tools /> : <Landing />}
+      {route === 'app' ? (
+        <Console />
+      ) : route === 'keygen' ? (
+        <Keygen />
+      ) : route === 'tools' ? (
+        <Tools />
+      ) : route === 'budget' ? (
+        <div className="page">
+          <a className="back-link" href="#/tools">&larr; All tools</a>
+          <BudgetManager />
+        </div>
+      ) : route === 'pdf' ? (
+        <div className="page">
+          <a className="back-link" href="#/tools">&larr; All tools</a>
+          <Suspense fallback={<p className="hint">Loading the PDF tool...</p>}>
+            <PdfConvert />
+          </Suspense>
+        </div>
+      ) : (
+        <Landing />
+      )}
       <footer className="footer">
         <span>© {new Date().getFullYear()} OUAGX. All rights reserved.</span>
         <span>Bring-your-own-key gateway — keys stay in your browser.</span>
