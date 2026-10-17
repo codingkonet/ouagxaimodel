@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { PROVIDERS, loadKeys, saveKeys, sendChat } from './lib/providers.js';
 import { generateKey } from './lib/keygen.js';
 import {
@@ -675,6 +675,55 @@ function BudgetManager() {
   );
 }
 
+const TOOL_MENU_ITEMS = [
+  { label: 'Budget manager', href: '#/tools', hint: 'Track spending + AI analysis' },
+];
+
+function ToolsMenu() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open ]);
+
+  return (
+    <div className="menu-wrap" ref={ref}>
+      <button
+        className="menu-btn"
+        aria-haspopup="true"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        Tools <span className="caret" aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="menu" role="menu">
+          {TOOL_MENU_ITEMS.map((item) => (
+            <a key={item.href} href={item.href} role="menuitem" onClick={() => setOpen(false)}>
+              <span className="menu-label">{item.label}</span>
+              <span className="menu-hint">{item.hint}</span>
+            </a>
+          ))}
+          <span className="menu-note">More tools coming soon</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Tools() {
   return (
     <div className="page">
@@ -700,7 +749,7 @@ export default function App() {
         <div className="brand">OUAGX<small>gateway console</small></div>
         <nav className="nav">
           <a href="#/">Home</a>
-          <a href="#/tools">Tools</a>
+          <ToolsMenu />
           <a href="#/key">API key</a>
           <a href="#/app" className="cta">Console</a>
         </nav>
