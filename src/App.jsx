@@ -243,13 +243,40 @@ function Keygen() {
         {error && <div className="error">{error}</div>}
       </div>
 
-      <h2 className="section-title">Use it</h2>
+      <h2 className="section-title">Run your API machine</h2>
       <div className="panel">
-        <p>On the API machine, set the key you copied, add a provider key, and start:</p>
-        <p><code>$env:OUAGX_API_KEY = "paste-the-key-here"</code></p>
-        <p><code>$env:OUAGX_DEEPSEEK_KEY = "sk-..."</code></p>
-        <p><code>npm run api</code></p>
-        <p className="hint">Then give people the shared key with the PowerShell command.</p>
+        <ol className="steps">
+          <li>Copy the key above - it becomes your shared <code>OUAGX_API_KEY</code>.</li>
+          <li>
+            On the API machine, open PowerShell in your OUAGX folder:
+            <br /><code>cd $env:LOCALAPPDATA\OUAGX</code>
+          </li>
+          <li>
+            Set the shared key and at least one provider key:
+            <br /><code>$env:OUAGX_API_KEY = &quot;{key || 'paste-the-key-here'}&quot;</code>
+            <br /><code>$env:OUAGX_DEEPSEEK_KEY = &quot;sk-...&quot;</code>
+          </li>
+          <li>
+            Start the API and leave the window open:
+            <br /><code>npm run api</code>
+          </li>
+          <li>
+            Check it in a second window:
+            <br /><code>irm http://127.0.0.1:8080/api/health</code>
+            <br /><span className="hint">ok : True means it is running.</span>
+          </li>
+          <li>
+            Ask it from any machine:
+            <br /><code>$env:OUAGX_API_KEY = &quot;{key || 'paste-the-key-here'}&quot;</code>
+            <br /><code>irm https://ouagx.com/ouagx.ps1 -OutFile $env:TEMP\ouagx.ps1</code>
+            <br /><code>&amp; $env:TEMP\ouagx.ps1 -Once &quot;hi&quot; -Provider deepseek -ApiUrl http://localhost:8080</code>
+          </li>
+        </ol>
+        <p className="hint">
+          Other computers on your network? Start the API with
+          <code> $env:OUAGX_HOST = &quot;0.0.0.0&quot; </code>
+          and point -ApiUrl at this machine&apos;s IP address.
+        </p>
       </div>
     </div>
   );
