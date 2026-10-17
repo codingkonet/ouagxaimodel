@@ -53,6 +53,8 @@ table.keys td, table.keys th { border-bottom: 1px solid var(--line); padding: 8p
 .composer input { flex: 1; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
 .error { color: #9b1c1c; background: #fdecec; border: 1px solid #f3b8b8; padding: 10px 12px; border-radius: 8px; margin-top: 12px; }
 .hint { font-size: 13px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+.key-output { font-family: Consolas, "Courier New", monospace; }
+.copy-ok { color: var(--accent); font-weight: 700; align-self: center; }
 .footer {
   display: flex; justify-content: space-between; align-items: center; gap: 8px 20px; flex-wrap: wrap;
   border-top: 1px solid var(--line); padding: 18px 28px;

@@ -30,6 +30,9 @@ See [terminal/README.md](terminal/README.md).
 Provider keys stay on the API machine; anyone with the shared key connects
 from PowerShell with one command — no provider keys, no Node.js needed.
 
+No key yet? Generate one at `https://ouagx.com/#/key` — made locally
+in your browser, never sent anywhere.
+
 On the API machine:
 
 ```powershell

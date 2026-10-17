@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PROVIDERS, loadKeys, saveKeys, sendChat } from './lib/providers.js';
+import { generateKey } from './lib/keygen.js';
 
 function useHashRoute() {
   const [hash, setHash] = useState(window.location.hash || '#/');
@@ -8,7 +9,9 @@ function useHashRoute() {
     window.addEventListener('hashchange', onChange);
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
-  return hash.startsWith('#/app') ? 'app' : 'home';
+  if (hash.startsWith('#/app')) return 'app';
+  if (hash.startsWith('#/key')) return 'keygen';
+  return 'home';
 }
 
 function Landing() {
@@ -159,6 +162,99 @@ function Console() {
   );
 }
 
+function Keygen() {
+  const [length, setLength] = useState(48);
+  const [key, setKey] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+
+  function make(n) {
+    setError('');
+    setCopied(false);
+    try {
+      setKey(generateKey(n));
+    } catch (e) {
+      setError(String((e && e.message) || e));
+      setKey('');
+    }
+  }
+
+  useEffect(() => { make(48); }, []);
+
+  async function copy() {
+    if (!key) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(key);
+      } else {
+        const area = document.createElement('textarea');
+        area.value = key;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand('copy');
+        document.body.removeChild(area);
+      }
+      setCopied(true);
+    } catch {
+      setError('Copy failed - select the key and copy it manually.');
+    }
+  }
+
+  return (
+    <div className="page">
+      <h2>API key generator</h2>
+      <p className="hint">
+        Make a shared <code>OUAGX_API_KEY</code> for your API server. The key is
+        generated inside your browser with a secure random generator and never
+        sent anywhere.
+      </p>
+      <div className="panel">
+        <div className="field">
+          <label>Length</label>
+          <select
+            value={length}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              setLength(n);
+              make(n);
+            }}
+          >
+            <option value={32}>32 characters</option>
+            <option value={48}>48 characters (recommended)</option>
+            <option value={64}>64 characters</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Your key</label>
+          <input
+            className="key-output"
+            readOnly
+            value={key}
+            onFocus={(e) => e.target.select()}
+            placeholder="Generating..."
+            aria-label="Generated API key"
+          />
+        </div>
+        <div className="hero-actions">
+          <button className="btn" onClick={() => make(length)}>Generate new key</button>
+          <button className="btn ghost" onClick={copy} disabled={!key}>Copy</button>
+          {copied && <span className="copy-ok">Copied!</span>}
+        </div>
+        {error && <div className="error">{error}</div>}
+      </div>
+
+      <h2 className="section-title">Use it</h2>
+      <div className="panel">
+        <p>On the API machine, set the key you copied, add a provider key, and start:</p>
+        <p><code>$env:OUAGX_API_KEY = "paste-the-key-here"</code></p>
+        <p><code>$env:OUAGX_DEEPSEEK_KEY = "sk-..."</code></p>
+        <p><code>npm run api</code></p>
+        <p className="hint">Then give people the shared key with the PowerShell command.</p>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const route = useHashRoute();
   return (
@@ -167,10 +263,11 @@ export default function App() {
         <div className="brand">OUAGX<small>gateway console</small></div>
         <nav className="nav">
           <a href="#/">Home</a>
+          <a href="#/key">API key</a>
           <a href="#/app" className="cta">Console</a>
         </nav>
       </header>
-      {route === 'app' ? <Console /> : <Landing />}
+      {route === 'app' ? <Console /> : route === 'keygen' ? <Keygen /> : <Landing />}
       <footer className="footer">
         <span>© {new Date().getFullYear()} OUAGX. All rights reserved.</span>
         <span>Bring-your-own-key gateway — keys stay in your browser.</span>
